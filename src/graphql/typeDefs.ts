@@ -27,8 +27,8 @@ enum DeliveryPartnerStatus {
 }
 
 type User {
-  id: ID!
-  name: String!
+  _id: ID!
+  name: String
   email: String
   phone: String!
   isPhoneVerified: Boolean
@@ -137,12 +137,21 @@ type Offer {
 }
 
 type AuthPayload {
-  user: User
-  token: String
+  user_id: String
+  message: String
+  
+}
+
+type AuthResponse {
+  user: User,
+  access_token:String,
+  refresh_token:String
+  message:String
+  success:Boolean
 }
 
 type Query {
-    book:String
+  health:String
   nearbyShops(latitude: Float!, longitude: Float!, radius: Float): [LaundryShop!]!
   shop(id: ID!): LaundryShop
   me: User
@@ -151,8 +160,8 @@ type Query {
 }
 
 type Mutation {
-  registerUser(name: String!, email: String, phone: String!, password: String!): AuthPayload!
-  loginUser(email: String, phone: String, password: String!): AuthPayload!
+  registerUser(phone: String!): AuthPayload!
+  verifyOtp(otp:Int!,user_id:String): AuthResponse
   updateUserProfile(name: String, phone: String, defaultAddressId: ID): User!
   addAddress(street: String!, city: String!, state: String!, postalCode: String!, latitude: Float, longitude: Float, isDefault: Boolean): Address!
   updateAddress(id: ID!, street: String, city: String, state: String, postalCode: String, latitude: Float, longitude: Float, isDefault: Boolean): Address

@@ -2,11 +2,11 @@ import AddressModel, { AddressDocument } from "../models/address.model";
 import OrderModel, { OrderDocument } from "../models/order.model";
 import UserModel, { UserDocument } from "../models/user.model";
 import { AuthPayload } from "../types";
-import { generate_Token, generateOTP } from "../utils";
+import { generate_Token, generateOTP, sendOTP } from "../utils";
 
 const signinUser = async (
   phone: string
-): Promise<{ message: string; userId?: string } | null> => {
+): Promise<{ message: string; user_id?: string; success: boolean } | null> => {
   try {
     let user = await UserModel.findOne({ phone });
 
@@ -24,51 +24,63 @@ const signinUser = async (
     user.otp = { value: otpValue, expiry: otpExpiry };
     await user.save();
 
+    // sending otp to user number
+    await sendOTP(user.phone);
+
     return {
       message: "OTP sent for verification.",
-      userId: user._id.toString(),
+      user_id: user._id.toString(),
+      success: true,
     };
   } catch (error) {
     console.error("Error during phone sign-in initiation:", error);
-    return { message: "Something went wrong. Please try again later." };
+    return {
+      message: "Something went wrong. Please try again later.",
+      success: false,
+    };
   }
 };
 
 const verifyOTP = async (
-  userId: string,
+  user_id: string,
   otp: number
 ): Promise<AuthPayload | null> => {
   try {
-    const user = await UserModel.findById(userId);
+    const user = await UserModel.findById(user_id);
 
-    if (
-      !user ||
-      !user.otp ||
-      user.otp.value !== otp ||
-      user.otp.expiry < new Date()
-    ) {
-      return { message: "Invalid or expired OTP." }; // Invalid OTP or expired
+    if (!user) {
+      return { message: "No account found.", success: false };
     }
 
-    // OTP is valid, mark phone as verified and clear the OTP
-    user.isPhoneVerified = true;
-    user.otp = undefined;
-    await user.save();
+    if (!user.isPhoneVerified) {
+      if (user.otp.value !== otp || user.otp.expiry < new Date()) {
+        return { success: false, message: "Invalid or expired OTP." };
+      }
+      user.isPhoneVerified = true;
+      user.otp = undefined;
+      await user.save();
+    }
 
-    // Generate access and refresh tokens
     const { access_token, refresh_token } = generate_Token(
       user._id.toString() as string
     );
-    return { user, access_token, refresh_token };
+    console.log(`User with ID : ${user._id} has verified their phone number. `);
+    return {
+      user,
+      access_token,
+      refresh_token,
+      message: "OTP verified successfully.",
+      success: true,
+    };
   } catch (error) {
     console.error("Error verifying OTP:", error);
-    throw new Error("Could not verify OTP");
+    return { message: "Something went wrong.", success: false };
   }
 };
 
 // Async function for adding a new address for a user
 const addAddress = async (
-  userId: string,
+  user_id: string,
   street: string,
   city: string,
   state: string,
@@ -86,12 +98,12 @@ const addAddress = async (
       latitude,
       longitude,
       isDefault,
-      user: userId,
+      user: user_id,
     });
     const savedAddress = await newAddress.save();
 
     // Update the user's addresses array
-    await UserModel.findByIdAndUpdate(userId, {
+    await UserModel.findByIdAndUpdate(user_id, {
       $push: { addresses: savedAddress._id },
     });
 
@@ -103,9 +115,9 @@ const addAddress = async (
 };
 
 // Async function for fetching a user's profile data
-async function fetchUserProfile(userId: string): Promise<UserDocument | null> {
+async function fetchUserProfile(user_id: string): Promise<UserDocument | null> {
   try {
-    const user = await UserModel.findById(userId)
+    const user = await UserModel.findById(user_id)
       .populate("addresses")
       .populate("savedPaymentMethods");
     return user;
@@ -116,9 +128,9 @@ async function fetchUserProfile(userId: string): Promise<UserDocument | null> {
 }
 
 // Async function for fetching a user's order history
-async function fetchUserOrders(userId: string): Promise<OrderDocument[]> {
+async function fetchUserOrders(user_id: string): Promise<OrderDocument[]> {
   try {
-    const orders = await OrderModel.find({ user: userId })
+    const orders = await OrderModel.find({ user: user_id })
       .populate("shop")
       .populate("items.service")
       .populate("pickupAddress")
@@ -132,13 +144,13 @@ async function fetchUserOrders(userId: string): Promise<OrderDocument[]> {
 
 // Async function for fetching a specific address for a user
 async function fetchUserAddress(
-  userId: string,
+  user_id: string,
   addressId: string
 ): Promise<AddressDocument | null> {
   try {
     const address = await AddressModel.findOne({
       _id: addressId,
-      user: userId,
+      user: user_id,
     });
     return address;
   } catch (error) {
@@ -149,7 +161,7 @@ async function fetchUserAddress(
 
 // Async function for updating an existing address for a user
 async function updateUserAddress(
-  userId: string,
+  user_id: string,
   addressId: string,
   updates: {
     street?: string;
@@ -163,7 +175,7 @@ async function updateUserAddress(
 ): Promise<AddressDocument | null> {
   try {
     const updatedAddress = await AddressModel.findOneAndUpdate(
-      { _id: addressId, user: userId },
+      { _id: addressId, user: user_id },
       { $set: updates },
       { new: true }
     );
@@ -176,17 +188,17 @@ async function updateUserAddress(
 
 // Async function for deleting an address for a user
 async function deleteUserAddress(
-  userId: string,
+  user_id: string,
   addressId: string
 ): Promise<boolean> {
   try {
     const result = await AddressModel.findOneAndDelete({
       _id: addressId,
-      user: userId,
+      user: user_id,
     });
     if (result) {
       // Remove the address reference from the user's addresses array
-      await UserModel.findByIdAndUpdate(userId, {
+      await UserModel.findByIdAndUpdate(user_id, {
         $pull: { addresses: addressId },
       });
       return true;
@@ -200,7 +212,7 @@ async function deleteUserAddress(
 
 // Async function for updating a user's profile
 async function updateUserProfile(
-  userId: string,
+  user_id: string,
   updates: { name?: string; phone?: string; defaultAddressId?: string }
 ): Promise<UserDocument | null> {
   try {
@@ -211,7 +223,7 @@ async function updateUserProfile(
       // Ensure the default address belongs to the user
       const address = await AddressModel.findOne({
         _id: defaultAddressId,
-        user: userId,
+        user: user_id,
       });
       if (!address) {
         throw new Error("Default address not found for this user");
@@ -219,9 +231,13 @@ async function updateUserProfile(
       updateQuery.$set.defaultAddress = defaultAddressId; // Consider how you want to store the default address (as a direct field or by querying addresses)
     }
 
-    const updatedUser = await UserModel.findByIdAndUpdate(userId, updateQuery, {
-      new: true,
-    });
+    const updatedUser = await UserModel.findByIdAndUpdate(
+      user_id,
+      updateQuery,
+      {
+        new: true,
+      }
+    );
     return updatedUser;
   } catch (error) {
     console.error("Error updating user profile:", error);

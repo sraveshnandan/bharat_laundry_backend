@@ -1,11 +1,15 @@
+import { userResolver } from "./resolvers/user.resolvers";
+
 const resolvers = {
   Query: {
-    book: (_, {}, context) => {
-      console.log(context);
-      return "Hey Working...";
+    health: async (_, {}) => {
+      return "All systems are operational.";
     },
+    ...userResolver.Query,
   },
-  Mutation: {},
+  Mutation: {
+    ...userResolver.Mutation,
+  },
 };
 
 export { resolvers };

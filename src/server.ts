@@ -4,7 +4,6 @@ import { PORT } from "./config";
 import { server, startGraphqlServer } from "./graphql";
 import { connectToDatabase } from "./utils/db";
 import { CheckInitialAuth } from "./utils";
-import { GraphQLError } from "graphql";
 
 const startServer = async () => {
   await connectToDatabase();

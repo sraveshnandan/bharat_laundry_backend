@@ -1,13 +1,10 @@
 import { GraphQLError } from "graphql";
 import { CLIENT_KEY_1, JWT_ACCESS_KEY, JWT_REFRESH_KEY } from "../config";
 import JWT from "jsonwebtoken";
+import { NextFunction } from "express";
 
-const CheckInitialAuth = (token: string, req: any) => {
-  if (token !== CLIENT_KEY_1) {
-    return new GraphQLError("API Key is required.");
-  } else {
-    return req.headers;
-  }
+const CheckInitialAuth = (req: Request, res: Response, next: NextFunction) => {
+  console.log(req);
 };
 
 const generateOTP = () => {
@@ -25,4 +22,14 @@ const generate_Token = (user_id: string) => {
   return { access_token, refresh_token };
 };
 
-export { CheckInitialAuth, generateOTP, generate_Token };
+const sendOTP = async (phone: string) => {
+  try {
+  } catch (error) {
+    console.log(
+      "Err occurred while sending OTP",
+      JSON.stringify(error, null, 2)
+    );
+  }
+};
+
+export { CheckInitialAuth, generateOTP, generate_Token, sendOTP };
