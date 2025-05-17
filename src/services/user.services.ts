@@ -25,7 +25,7 @@ const signinUser = async (
     await user.save();
 
     // sending otp to user number
-    await sendOTP(user.phone);
+    await sendOTP(user.phone, otpValue);
 
     return {
       message: "OTP sent for verification.",
@@ -53,12 +53,19 @@ const verifyOTP = async (
     }
 
     if (!user.isPhoneVerified) {
-      if (user.otp.value !== otp || user.otp.expiry < new Date()) {
+      console.log("user_otp", otp);
+
+      const isOtpMatched = otp === user.otp.value;
+      // to fixed expiry logic
+      const isOtpExpired = user.otp.expiry < new Date(Date.now());
+
+      if (isOtpMatched) {
+        user.isPhoneVerified = true;
+        user.otp = undefined;
+        await user.save();
+      } else {
         return { success: false, message: "Invalid or expired OTP." };
       }
-      user.isPhoneVerified = true;
-      user.otp = undefined;
-      await user.save();
     }
 
     const { access_token, refresh_token } = generate_Token(
@@ -81,23 +88,11 @@ const verifyOTP = async (
 // Async function for adding a new address for a user
 const addAddress = async (
   user_id: string,
-  street: string,
-  city: string,
-  state: string,
-  postalCode: string,
-  latitude?: number,
-  longitude?: number,
-  isDefault?: boolean
+  addressData: Record<string, any>
 ): Promise<AddressDocument> => {
   try {
     const newAddress = new AddressModel({
-      street,
-      city,
-      state,
-      postalCode,
-      latitude,
-      longitude,
-      isDefault,
+      ...addressData,
       user: user_id,
     });
     const savedAddress = await newAddress.save();
@@ -117,9 +112,8 @@ const addAddress = async (
 // Async function for fetching a user's profile data
 async function fetchUserProfile(user_id: string): Promise<UserDocument | null> {
   try {
-    const user = await UserModel.findById(user_id)
-      .populate("addresses")
-      .populate("savedPaymentMethods");
+    console.log(`Fetching profile for user ID: ${user_id}`);
+    const user = await UserModel.findById(user_id).populate("addresses");
     return user;
   } catch (error) {
     console.error("Error fetching user profile:", error);
@@ -213,7 +207,7 @@ async function deleteUserAddress(
 // Async function for updating a user's profile
 async function updateUserProfile(
   user_id: string,
-  updates: { name?: string; phone?: string; defaultAddressId?: string }
+  updates: { name?: string; email?: string; defaultAddressId?: string }
 ): Promise<UserDocument | null> {
   try {
     const { defaultAddressId, ...restOfUpdates } = updates;

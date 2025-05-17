@@ -7,3 +7,19 @@ export interface AuthPayload {
   message?: string;
   success?: boolean;
 }
+
+export interface IContext {
+  _id: string;
+  phone: string;
+  isPhoneVerified: boolean;
+  addresses: string[];
+  orderHistory: string[];
+  savedPaymentMethods: string[];
+  role: "CUSTOMER";
+  createdAt: Date;
+  updatedAt: Date;
+  __v: number;
+  email: string;
+  name: string;
+  access_token: string;
+}

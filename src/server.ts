@@ -3,7 +3,7 @@ import { app } from "./app";
 import { PORT } from "./config";
 import { server, startGraphqlServer } from "./graphql";
 import { connectToDatabase } from "./utils/db";
-import { CheckInitialAuth } from "./utils";
+import { VerifyToken } from "./utils";
 
 const startServer = async () => {
   await connectToDatabase();
@@ -13,11 +13,16 @@ const startServer = async () => {
     "/graphql",
     expressMiddleware(server, {
       context: async ({ req }) => {
+        if (req.headers.authorization) {
+          const access_token = req.headers.authorization;
+          const data: any = await VerifyToken(access_token);
+          return data;
+        }
         return req.headers;
       },
     })
   );
-  app.listen(PORT, () => {
+  app.listen(Number(PORT), "0.0.0.0", () => {
     console.log(`Server is running at port: ${PORT}`);
   });
 };

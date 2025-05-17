@@ -1,14 +1,17 @@
+// src/models/shop.model.ts
+
 import mongoose, { Schema, Document } from "mongoose";
 
 export interface ShopDocument extends Document {
-  owner: mongoose.Types.ObjectId; // Reference to User document (Shop Owner)
+  owner: mongoose.Types.ObjectId; // Reference to User (Shop Owner)
   name: string;
-  address: mongoose.Types.ObjectId; // Reference to Address document
+  address: mongoose.Types.ObjectId; // Reference to Address
   contactNumber?: string;
   openingHours?: string;
   rating?: number;
-  reviews: mongoose.Types.ObjectId[]; // References to Review documents
-  services: mongoose.Types.ObjectId[]; // References to Service documents
+  reviews: mongoose.Types.ObjectId[]; // References to Review
+  services: mongoose.Types.ObjectId[]; // References to Service
+  products: mongoose.Types.ObjectId[]; // References to Product
   photos: string[]; // Array of image URLs
   status: "ACTIVE" | "INACTIVE" | "PENDING_APPROVAL" | "REJECTED";
 }
@@ -25,10 +28,13 @@ const ShopSchema: Schema = new Schema(
     },
     contactNumber: { type: String },
     openingHours: { type: String },
-    rating: { type: Number, min: 0, max: 5 },
+    rating: { type: Number, min: 0, max: 5, default: 3 },
     reviews: [{ type: Schema.Types.ObjectId, ref: "Review" }],
     services: [{ type: Schema.Types.ObjectId, ref: "Service" }],
-    photos: [String],
+    products: [{ type: Schema.Types.ObjectId, ref: "Product" }],
+    banners: [
+      { public_id: { type: String }, url: { type: String }, _id: false },
+    ],
     status: {
       type: String,
       enum: ["ACTIVE", "INACTIVE", "PENDING_APPROVAL", "REJECTED"],
