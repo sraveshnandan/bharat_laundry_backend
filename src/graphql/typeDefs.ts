@@ -265,8 +265,6 @@ type Mutation {
   createServiceByAdmin(input: ServiceInput!): Service 
   deleteServiceByAdmin(id: ID!): Boolean
   updateServiceByAdmin(id: ID!, input: ServiceInput!): Service
-
-
 }
 
 input OrderItemInput {
